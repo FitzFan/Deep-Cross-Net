@@ -110,6 +110,7 @@ class DCN(BaseEstimator, TransformerMixin):
             self.y_deep = tf.nn.dropout(self.x0,self.dropout_keep_deep[0])
 
             for i in range(0,len(self.deep_layers)):
+                # 标准的dnn玩法！！
                 self.y_deep = tf.add(tf.matmul(self.y_deep,self.weights["deep_layer_%d" %i]), self.weights["deep_bias_%d"%i])
                 self.y_deep = self.deep_layers_activation(self.y_deep)
                 self.y_deep = tf.nn.dropout(self.y_deep,self.dropout_keep_deep[i+1])
@@ -125,7 +126,7 @@ class DCN(BaseEstimator, TransformerMixin):
             self.cross_network_out = tf.reshape(x_l, (-1, self.total_size))
 
 
-            # concat_part
+            # concat_part【体现了joint train的思想】
             concat_input = tf.concat([self.cross_network_out, self.y_deep], axis=1)
 
             self.out = tf.add(tf.matmul(concat_input,self.weights['concat_projection']),self.weights['concat_bias'])
@@ -148,13 +149,11 @@ class DCN(BaseEstimator, TransformerMixin):
                     self.loss += tf.contrib.layers.l2_regularizer(
                         self.l2_reg)(self.weights["cross_layer_%d" % i])
 
-            # choose optimizer
+            # Choose optimizer And Use it to train model(xxx.minimize())
             if self.optimizer_type == "adam":
-                self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=0.9, beta2=0.999,
-                                                        epsilon=1e-8).minimize(self.loss)
+                self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=0.9, beta2=0.999,epsilon=1e-8).minimize(self.loss)
             elif self.optimizer_type == "adagrad":
-                self.optimizer = tf.train.AdagradOptimizer(learning_rate=self.learning_rate,
-                                                           initial_accumulator_value=1e-8).minimize(self.loss)
+                self.optimizer = tf.train.AdagradOptimizer(learning_rate=self.learning_rate,initial_accumulator_value=1e-8).minimize(self.loss)
             elif self.optimizer_type == "gd":
                 self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
             elif self.optimizer_type == "momentum":
@@ -266,7 +265,7 @@ class DCN(BaseEstimator, TransformerMixin):
 
         return loss
 
-    # train model by call fit_on_batch() func
+    # train model by calling fit_on_batch() function
     def fit(self, cate_Xi_train, cate_Xv_train,numeric_Xv_train, y_train,cate_Xi_valid=None, cate_Xv_valid=None, numeric_Xv_valid=None,y_valid=None,early_stopping=False, refit=False):
         """
         :param Xi_train: [[ind1_1, ind1_2, ...], [ind2_1, ind2_2, ...], ..., [indi_1, indi_2, ..., indi_j, ...], ...]
@@ -294,6 +293,7 @@ class DCN(BaseEstimator, TransformerMixin):
             for i in range(total_batch):
                 cate_Xi_batch, cate_Xv_batch,numeric_Xv_batch, y_batch = self.get_batch(cate_Xi_train, cate_Xv_train, numeric_Xv_train,y_train, self.batch_size, i)
 
+                # 这里可以不需要获取训练过程中的返回值。
                 self.fit_on_batch(cate_Xi_batch, cate_Xv_batch,numeric_Xv_batch, y_batch)
 
             # 计算loss
